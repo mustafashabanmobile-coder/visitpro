@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقارير الزيارات - Basmat Merchandiser</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #222; min-height: 100vh; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #1a73e8, #0d47a1); color: #fff; padding: 20px 24px; display: flex; align-items: center; gap: 16px; }
+  .header img { height: 48px; border-radius: 8px; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header p { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+
+  /* Layout */
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+  /* Filter Card */
+  .filter-card { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 24px; }
+  .filter-card h2 { font-size: 15px; color: #555; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:600px){ .filter-grid { grid-template-columns: 1fr; } }
+  .filter-group label { font-size: 12px; color: #666; display: block; margin-bottom: 6px; font-weight: 600; }
+  .filter-group select, .filter-group input { width: 100%; padding: 10px 12px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 14px; font-family: inherit; background: #fafafa; color: #222; transition: border 0.2s; }
+  .filter-group select:focus, .filter-group input:focus { outline: none; border-color: #1a73e8; background: #fff; }
+
+  .btn-export { width: 100%; margin-top: 20px; padding: 14px; background: #1a73e8; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-export:hover:not(:disabled) { background: #1558b0; transform: translateY(-1px); }
+  .btn-export:disabled { background: #b0bec5; cursor: not-allowed; transform: none; }
+
+  /* Inventory type filter */
+  .inventory-filter { margin-top: 16px; }
+  .inventory-filter label { font-size: 12px; color: #666; display: block; margin-bottom: 8px; font-weight: 600; }
+  .inventory-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e0e0e0; background: #fafafa; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .chip.active { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; font-weight: 600; }
+
+  /* Status bar */
+  .status-bar { text-align: center; margin-top: 12px; font-size: 13px; }
+  .status-bar.success { color: #2e7d32; }
+  .status-bar.error { color: #c62828; }
+  .status-bar.loading { color: #1a73e8; }
+
+  /* Stats row */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  @media(max-width:600px){ .stats-row { grid-template-columns: repeat(2,1fr); } }
+  .stat-card { background: #fff; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+  .stat-card .num { font-size: 28px; font-weight: 800; color: #1a73e8; }
+  .stat-card .lbl { font-size: 11px; color: #888; margin-top: 4px; }
+
+  /* Visit cards */
+  .visit-card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 8px rgba(0,0,0,0.06); border-right: 4px solid #e0e0e0; }
+  .visit-card.completed { border-right-color: #43a047; }
+  .visit-card.in_progress { border-right-color: #fb8c00; }
+  .visit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .visit-name { font-weight: 700; font-size: 15px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-done { background: #e8f5e9; color: #2e7d32; }
+  .badge-in { background: #fff3e0; color: #e65100; }
+  .badge-pending { background: #f3e5f5; color: #6a1b9a; }
+  .visit-meta { font-size: 12px; color: #888; margin-bottom: 6px; }
+  .visit-times { font-size: 13px; color: #555; margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .visit-times span { display: flex; align-items: center; gap: 4px; }
+
+  /* Inventory section */
+  .inventory-section { margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 12px; }
+  .inventory-title { font-size: 12px; font-weight: 700; color: #666; margin-bottom: 8px; }
+  .inventory-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .inventory-table th { background: #f5f7fa; padding: 6px 10px; text-align: right; color: #555; font-weight: 700; border-bottom: 1px solid #e8e8e8; }
+  .inventory-table td { padding: 6px 10px; border-bottom: 1px solid #f5f5f5; color: #333; }
+  .inventory-table tr:last-child td { border-bottom: none; }
+  .inv-type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .t1 { background: #e3f2fd; color: #1565c0; }
+  .t2 { background: #e8f5e9; color: #2e7d32; }
+  .t3 { background: #f3e5f5; color: #6a1b9a; }
+  .t4 { background: #fff3e0; color: #e65100; }
+  .t5 { background: #fce4ec; color: #c62828; }
+  .t6 { background: #e0f2f1; color: #00695c; }
+
+  /* Photos */
+  .photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; margin-top: 12px; }
+  .photos-grid img { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid #eee; transition: border 0.2s, transform 0.2s; }
+  .photos-grid img:hover { border-color: #1a73e8; transform: scale(1.05); }
+
+  /* Lightbox */
+  .lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+  .lightbox-close { position: fixed; top: 20px; right: 20px; color: #fff; font-size: 32px; cursor: pointer; line-height: 1; }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: #aaa; }
+  .empty-state svg { margin-bottom: 16px; opacity: 0.4; }
+  .empty-state p { font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="header" style="justify-content: space-between;">
+  <div>
+    <h1>📊 تقارير الزيارات</h1>
+    <p>Basmat Merchandiser — لوحة بيانات الزيارات والجرد</p>
+  </div>
+  <div style="text-align: left;">
+    <div style="font-size:13px; opacity:0.75; margin-bottom:2px;">العميل</div>
+    <div style="font-size:16px; font-weight:700;">🏢 شركة طرية للدواجن</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Filter Card -->
+  <div class="filter-card">
+    <h2>🔍 تصفية البيانات</h2>
+    <div class="filter-grid">
+      <div class="filter-group">
+        <label>اسم السوق</label>
+        <select id="marketSelect" onchange="checkReady()">
+          <option value="">جاري التحميل...</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>التاريخ</label>
+        <input type="date" id="dateInput" onchange="checkReady()" />
+      </div>
+    </div>
+
+    <div class="inventory-filter">
+      <label>نوع الجرد (اختياري — للتصفية في Excel)</label>
+      <div class="inventory-chips" id="inventoryChips">
+        <button class="chip active" data-type="all">كل الأنواع</button>
+        <button class="chip" data-type="الكمية المعروضة بداية اليوم">الكمية المعروضة</button>
+        <button class="chip" data-type="الكمية بالمستودع">المستودع</button>
+        <button class="chip" data-type="توالف صالحة">توالف صالحة</button>
+        <button class="chip" data-type="توالف اكسبير">توالف اكسبير</button>
+        <button class="chip" data-type="البضاعة المستلمة">البضاعة المستلمة</button>
+        <button class="chip" data-type="سعر المنافسين">سعر المنافسين</button>
+      </div>
+    </div>
+
+    <button class="btn-export" id="exportBtn" onclick="loadAndExport()" disabled>
+      <span>📥 عرض الزيارات وتحميل Excel</span>
+    </button>
+    <div class="status-bar" id="statusBar"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsSection"></div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">✕</span>
+  <img id="lightboxImg" src="" />
+</div>
+
+<script>
+const SUPABASE_URL = 'https://qzmfjpzelgouuylsnuzm.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6bWZqcHplbGdvdXV5bHNudXptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxODU0MjEsImV4cCI6MjA5Mjc2MTQyMX0.s_4DeLwSSQUVlKlMUNns8VYFa2nPcnKtT25_qa9OMiY';
+
+let selectedInventoryType = 'all';
+
+async function api(path) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// Inventory type chips
+document.getElementById('inventoryChips').addEventListener('click', e => {
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  selectedInventoryType = btn.dataset.type;
+});
+
+async function loadMarkets() {
+  try {
+    const markets = await api('markets?select=id,name&order=name');
+    const sel = document.getElementById('marketSelect');
+    sel.innerHTML = '<option value="">-- اختر السوق --</option>';
+    sel.innerHTML += '<option value="all">🏪 كل الأسواق</option>';
+    markets.forEach(m => sel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+  } catch(e) {
+    showStatus('خطأ في تحميل الأسواق: ' + e.message, 'error');
+  }
+}
+
+function checkReady() {
+  const market = document.getElementById('marketSelect').value;
+  const date = document.getElementById('dateInput').value;
+  document.getElementById('exportBtn').disabled = !(market && date);
+  document.getElementById('statusBar').textContent = '';
+  document.getElementById('resultsSection').innerHTML = '';
+}
+
+function showStatus(msg, type = 'loading') {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.className = 'status-bar ' + type;
+}
+
+const invTypeColors = {
+  'الكمية المعروضة بداية اليوم': 't1',
+  'الكمية بالمستودع': 't2',
+  'توالف صالحة': 't3',
+  'توالف اكسبير': 't4',
+  'البضاعة المستلمة': 't5',
+  'سعر المنافسين': 't6'
+};
+
+async function loadAndExport() {
+  const marketId = document.getElementById('marketSelect').value;
+  const marketName = document.getElementById('marketSelect').selectedOptions[0].text;
+  const date = document.getElementById('dateInput').value;
+
+  showStatus('⏳ جاري جلب البيانات...', 'loading');
+  document.getElementById('exportBtn').disabled = true;
+  document.getElementById('exportBtn').innerHTML = '<span class="spinner"></span><span>جاري التحميل...</span>';
+  document.getElementById('resultsSection').innerHTML = '';
+
+  try {
+    const dateStart = date + 'T00:00:00';
+    const dateEnd   = date + 'T23:59:59';
+
+    let visitsQuery;
+    if (marketId === 'all') {
+      visitsQuery = `visits?select=id,check_in_time,check_out_time,gps_lat,gps_lng,status,photos,photos_after,user_id,market_id,users(name,email),markets(name)&check_in_time=gte.${dateStart}&check_in_time=lte.${dateEnd}&order=check_in_time`;
+    } else {
+      visitsQuery = `visits?select=id,check_in_time,check_out_time,gps_lat,gps_lng,status,photos,photos_after,user_id,market_id,users(name,email),markets(name)&market_id=eq.${marketId}&check_in_time=gte.${dateStart}&check_in_time=lte.${dateEnd}&order=check_in_time`;
+    }
+
+    const visits = await api(visitsQuery);
+
+    if (!visits || visits.length === 0) {
+      showStatus('لا توجد زيارات في هذا اليوم لهذا السوق', 'error');
+      document.getElementById('resultsSection').innerHTML = `
+        <div class="empty-state">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p>لا توجد زيارات مسجلة في هذا اليوم</p>
+        </div>`;
+      return;
+    }
+
+    // 2. Fetch inventory for all visits
+    const visitIds = visits.map(v => `"${v.id}"`).join(',');
+    let inventory = [];
+    try {
+      inventory = await api(
+        `visit_inventory?select=visit_id,type,quantity,competitor_price,notes,products(name)&visit_id=in.(${visitIds})`
+      );
+    } catch(e) { /* no inventory yet */ }
+
+    // 3. Group inventory by visit_id
+    const inventoryMap = {};
+    inventory.forEach(item => {
+      if (!inventoryMap[item.visit_id]) inventoryMap[item.visit_id] = [];
+      inventoryMap[item.visit_id].push(item);
+    });
+
+    // 4. Render UI
+    renderResults(visits, inventoryMap, marketName, date);
+
+    // 5. Build Excel
+    buildExcel(visits, inventoryMap, marketName, date);
+
+    const totalInv = inventory.length;
+    showStatus(`✓ تم التحميل — ${visits.length} زيارة، ${totalInv} سجل جرد`, 'success');
+
+  } catch(e) {
+    showStatus('حدث خطأ: ' + e.message, 'error');
+  } finally {
+    document.getElementById('exportBtn').disabled = false;
+    document.getElementById('exportBtn').innerHTML = '<span>📥 عرض الزيارات وتحميل Excel</span>';
+  }
+}
+
+function renderResults(visits, inventoryMap, marketName, date) {
+  const sec = document.getElementById('resultsSection');
+
+  // Stats
+  const completed = visits.filter(v => v.status === 'completed' || v.status === 'checked_in').length;
+  const withPhotos = visits.filter(v => v.photos && v.photos.length > 0).length;
+  const totalInvRecords = Object.values(inventoryMap).reduce((a, b) => a + b.length, 0);
+  const totalPhotos = visits.reduce((a, v) => a + (v.photos ? v.photos.length : 0) + (v.photos_after ? v.photos_after.length : 0), 0);
+
+  sec.innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="num">${visits.length}</div><div class="lbl">إجمالي الزيارات</div></div>
+      <div class="stat-card"><div class="num">${completed}</div><div class="lbl">زيارات مكتملة</div></div>
+      <div class="stat-card"><div class="num">${totalInvRecords}</div><div class="lbl">سجلات جرد</div></div>
+      <div class="stat-card"><div class="num">${totalPhotos}</div><div class="lbl">صورة مرفوعة</div></div>
+    </div>`;
+
+  visits.forEach(v => {
+    const inTime  = v.check_in_time  ? new Date(v.check_in_time).toLocaleTimeString('ar-SA')  : '--';
+    const outTime = v.check_out_time ? new Date(v.check_out_time).toLocaleTimeString('ar-SA') : '--';
+
+    let badgeHtml = '';
+    if (v.status === 'completed' || v.status === 'checked_in') {
+      badgeHtml = '<span class="badge badge-done">✓ مكتملة</span>';
+    } else if (v.status === 'in_progress') {
+      badgeHtml = '<span class="badge badge-in">● جاري</span>';
+    } else {
+      badgeHtml = `<span class="badge badge-pending">${v.status || 'غير محدد'}</span>`;
+    }
+
+    // Inventory table
+    const items = inventoryMap[v.id] || [];
+    let filteredItems = selectedInventoryType === 'all' ? items : items.filter(i => i.type === selectedInventoryType);
+
+    let invHtml = '';
+    if (filteredItems.length > 0) {
+      const rows = filteredItems.map(item => {
+        const colorClass = invTypeColors[item.type] || 't1';
+        const value = item.type === 'سعر المنافسين'
+          ? (item.competitor_price != null ? item.competitor_price + ' ر.س' : '—')
+          : (item.quantity != null ? item.quantity : '—');
+        const extra = item.notes ? `<br><small style="color:#aaa">${item.notes}</small>` : '';
+        return `<tr>
+          <td>${item.products?.name || '—'}</td>
+          <td><span class="inv-type-badge ${colorClass}">${item.type}</span></td>
+          <td>${value}${extra}</td>
+        </tr>`;
+      }).join('');
+      invHtml = `
+        <div class="inventory-section">
+          <div class="inventory-title">📦 بيانات الجرد (${filteredItems.length} صنف)</div>
+          <table class="inventory-table">
+            <thead><tr><th>المنتج</th><th>نوع الجرد</th><th>القيمة</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    } else if (items.length === 0) {
+      invHtml = `<div class="inventory-section"><div style="font-size:12px;color:#bbb;padding:8px 0">لا توجد بيانات جرد</div></div>`;
+    }
+
+    // Photos
+    let photosHtml = '';
+    const photosBefore = v.photos && v.photos.length > 0;
+    const photosAfter = v.photos_after && v.photos_after.length > 0;
+    if (photosBefore || photosAfter) {
+      photosHtml = '<div style="margin-top:12px;">';
+      if (photosBefore) {
+        photosHtml += `<div style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px;">📷 صور قبل</div>`;
+        photosHtml += `<div class="photos-grid">${v.photos.map(url =>
+          `<img src="${url}" onclick="openLightbox('${url}')" />`
+        ).join('')}</div>`;
+      }
+      if (photosAfter) {
+        photosHtml += `<div style="font-size:11px;font-weight:700;color:#666;margin:10px 0 6px;">📷 صور بعد</div>`;
+        photosHtml += `<div class="photos-grid">${v.photos_after.map(url =>
+          `<img src="${url}" onclick="openLightbox('${url}')" />`
+        ).join('')}</div>`;
+      }
+      photosHtml += '</div>';
+    }
+
+    const statusClass = (v.status === 'completed' || v.status === 'checked_in') ? 'completed' : (v.status === 'in_progress' ? 'in_progress' : '');
+
+    sec.innerHTML += `
+      <div class="visit-card ${statusClass}">
+        <div class="visit-header">
+          <span class="visit-name">👤 ${v.users?.name || 'غير معروف'}</span>
+          ${badgeHtml}
+        </div>
+        <div class="visit-meta">${v.users?.email || ''} ${v.markets?.name ? '| 🏪 ' + v.markets.name : ''}</div>
+        <div class="visit-times">
+          <span>🕐 دخول: ${inTime}</span>
+          <span>🕓 خروج: ${outTime}</span>
+        </div>
+        ${invHtml}
+        ${photosHtml}
+      </div>`;
+  });
+}
+
+function buildExcel(visits, inventoryMap, marketName, date) {
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: Visits Summary ──
+  const summaryRows = visits.map(v => ({
+    'اسم المرشنديزر': v.users?.name || '',
+    'الإيميل': v.users?.email || '',
+    'اسم السوق': v.markets?.name || marketName,
+    'التاريخ': date,
+    'وقت الدخول': v.check_in_time  ? new Date(v.check_in_time).toLocaleString('ar-SA')  : '',
+    'وقت الخروج': v.check_out_time ? new Date(v.check_out_time).toLocaleString('ar-SA') : '',
+    'الحالة': v.status || '',
+    'إحداثيات Lat': v.gps_lat || '',
+    'إحداثيات Lng': v.gps_lng || '',
+    'عدد صور قبل': v.photos ? v.photos.length : 0,
+    'عدد صور بعد': v.photos_after ? v.photos_after.length : 0,
+    'عدد سجلات الجرد': (inventoryMap[v.id] || []).length,
+    'روابط صور قبل': v.photos ? v.photos.join('\n') : '',
+    'روابط صور بعد': v.photos_after ? v.photos_after.join('\n') : ''
+  }));
+  const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+  ws1['!cols'] = [{wch:20},{wch:28},{wch:18},{wch:12},{wch:22},{wch:22},{wch:14},{wch:14},{wch:14},{wch:10},{wch:14},{wch:60}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'ملخص الزيارات');
+
+  // ── Sheet 2: Inventory Detail ──
+  const invRows = [];
+  visits.forEach(v => {
+    const items = inventoryMap[v.id] || [];
+    if (items.length === 0) {
+      invRows.push({
+        'اسم المرشنديزر': v.users?.name || '',
+        'اسم السوق': v.markets?.name || marketName,
+        'وقت الدخول': v.check_in_time ? new Date(v.check_in_time).toLocaleString('ar-SA') : '',
+        'المنتج': '—',
+        'نوع الجرد': '—',
+        'الكمية': '',
+        'السعر (منافسين)': '',
+        'ملاحظات (تاريخ)': ''
+      });
+    } else {
+      items.forEach(item => {
+        invRows.push({
+          'اسم المرشنديزر': v.users?.name || '',
+          'اسم السوق': v.markets?.name || marketName,
+          'وقت الدخول': v.check_in_time ? new Date(v.check_in_time).toLocaleString('ar-SA') : '',
+          'المنتج': item.products?.name || '—',
+          'نوع الجرد': item.type || '',
+          'الكمية': item.quantity != null ? item.quantity : '',
+          'السعر (منافسين)': item.competitor_price != null ? item.competitor_price : '',
+          'ملاحظات (تاريخ)': item.notes || ''
+        });
+      });
+    }
+  });
+
+  const filteredInvRows = selectedInventoryType === 'all'
+    ? invRows
+    : invRows.filter(r => r['نوع الجرد'] === selectedInventoryType || r['نوع الجرد'] === '—');
+
+  const ws2 = XLSX.utils.json_to_sheet(filteredInvRows);
+  ws2['!cols'] = [{wch:20},{wch:18},{wch:22},{wch:30},{wch:28},{wch:12},{wch:16},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'تفاصيل الجرد');
+
+  // ── شيت لكل نوع جرد ──
+  const types = ['الكمية المعروضة بداية اليوم','الكمية بالمستودع','توالف صالحة','توالف اكسبير','البضاعة المستلمة','سعر المنافسين'];
+  types.forEach(type => {
+    const typeRows = [];
+    visits.forEach(v => {
+      const items = (inventoryMap[v.id] || []).filter(i => i.type === type);
+      items.forEach(item => {
+        typeRows.push({
+          'المرشنديزر': v.users?.name || '',
+          'السوق': v.markets?.name || marketName,
+          'المنتج': item.products?.name || '—',
+          'الكمية': item.quantity != null ? item.quantity : '',
+          'السعر': item.competitor_price != null ? item.competitor_price : '',
+          'تاريخ الانتهاء': item.notes || ''
+        });
+      });
+    });
+    if (typeRows.length > 0) {
+      const wsT = XLSX.utils.json_to_sheet(typeRows);
+      wsT['!cols'] = [{wch:20},{wch:18},{wch:30},{wch:12},{wch:12},{wch:18}];
+      const sheetName = type.length > 31 ? type.substring(0, 31) : type;
+      XLSX.utils.book_append_sheet(wb, wsT, sheetName);
+    }
+  });
+
+  const fileName = marketName.replace(/[^\u0600-\u06FFa-zA-Z0-9 ]/g,'').trim();
+  XLSX.writeFile(wb, `زيارات_${fileName}_${date}.xlsx`);
+}
+
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+// Set today's date as default
+document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+
+loadMarkets();
+</script>
+</body>
+</html>
